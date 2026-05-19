@@ -31,4 +31,5 @@ typedef struct {
   uint32_t active_mask;
   uint32_t predicate_mask;
   uint64_t imm;
+  uint32_t reuse_mask;  // bitmask: bit s = 1 means source register s has .reuse (RFC hint)
 } inst_trace_t;

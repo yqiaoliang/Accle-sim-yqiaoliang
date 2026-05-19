@@ -35,6 +35,7 @@ void split(const std::string &str, std::vector<std::string> &cont,
 inst_trace_t::inst_trace_t() {
   memadd_info = NULL;
   imm = 0;
+  reg_reuse_mask = 0;
 }
 
 inst_trace_t::~inst_trace_t() {
@@ -46,6 +47,7 @@ inst_trace_t::inst_trace_t(const inst_trace_t &b) {
     memadd_info = new inst_memadd_info_t();
     memadd_info = b.memadd_info;
   }
+  reg_reuse_mask = b.reg_reuse_mask;
 }
 
 bool inst_trace_t::check_opcode_contain(const std::vector<std::string> &opcode,
@@ -221,6 +223,18 @@ bool inst_trace_t::parse_from_string(std::string trace, unsigned trace_version,
   }
 
   ss >> imm;
+
+  // Parse reuse mask (optional field, introduced in tracer version 6)
+  if (trace_version >= 6) {
+    std::string reuse_token;
+    ss >> reuse_token;
+    // Format: reuse=0xXXXX
+    if (reuse_token.find("reuse=0x") != std::string::npos) {
+      sscanf(reuse_token.c_str(), "reuse=0x%x", &reg_reuse_mask);
+    }
+  } else {
+    reg_reuse_mask = 0;  // default: no reuse info for old traces
+  }
 
   // Finish Parsing
 

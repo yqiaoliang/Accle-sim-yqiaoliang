@@ -32,7 +32,7 @@
 /* contains definition of the inst_trace_t structure */
 #include "common.h"
 
-#define TRACER_VERSION "5"
+#define TRACER_VERSION "6"
 
 static int get_attr_with_kernel_fallback(CUfunction func,
                                          CUfunction_attribute attr) {
@@ -357,6 +357,7 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
       /* check all operands. For now, we ignore constant, TEX, predicates and
        * unified registers. We only report vector regisers */
       int src_oprd[MAX_SRC];
+      bool src_reuse[MAX_SRC] = {false}; // track .reuse flag per source reg
       int srcNum = 0;
       int dst_oprd = -1;
       int mem_oper_idx = -1;
@@ -382,6 +383,15 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
             // find src regs
             assert(srcNum < MAX_SRC);
             src_oprd[srcNum] = instr->getOperand(i)->u.reg.num;
+            // Detect .reuse on this source register operand
+            // The 'prop' field (if populated by nvbit) contains ".reuse"
+            // Fall back to checking the operand string
+            if (strlen(op->u.reg.prop) > 0 &&
+                strstr(op->u.reg.prop, "reuse") != NULL) {
+              src_reuse[srcNum] = true;
+            } else if (strstr(op->str, ".reuse") != NULL) {
+              src_reuse[srcNum] = true;
+            }
             srcNum++;
           }
         }
@@ -389,6 +399,12 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
         else if (op->type == InstrType::OperandType::IMM_UINT64) {
           imm_value = instr->getOperand(i)->u.imm_uint64.value;
         }
+      }
+
+      // Build reuse mask: bit s is set if src register s has .reuse
+      uint32_t reuse_mask = 0;
+      for (int s = 0; s < srcNum; s++) {
+        if (src_reuse[s]) reuse_mask |= (1U << s);
       }
 
       do {
@@ -443,6 +459,8 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
         nvbit_add_call_arg_const_val32(instr, (int)line_num);
         /* Add instruction index for current instr (spinlock detection) */
         nvbit_add_call_arg_const_val32(instr, (uint32_t)instr->getIdx());
+        /* Add reuse mask for source registers */
+        nvbit_add_call_arg_const_val32(instr, reuse_mask);
 
         mem_oper_idx--;
       } while (mem_oper_idx >= 0);
@@ -457,6 +475,7 @@ __global__ void flush_channel() {
    * completed */
   inst_trace_t ma;
   ma.cta_id_x = -1;
+  ma.reuse_mask = 0;
   channel_dev.push(&ma, sizeof(inst_trace_t));
 
   /* flush channel */
@@ -577,7 +596,7 @@ static void enter_kernel_launch(CUcontext ctx, CUfunction func,
             "#traces format = [line_num] PC mask dest_num [reg_dests] "
             "opcode src_num "
             "[reg_srcs] mem_width [adrrescompress?] [mem_addresses] "
-            "immediate\n");
+            "immediate reuse_mask\n");
     fprintf(ctx_resultsFile[ctx], "\n");
   }
 
@@ -1118,6 +1137,9 @@ void *recv_thread_fun(void *args) {
 
         // Print the immediate
         fprintf(ctx_resultsFile[ctx], "%d ", ma->imm);
+
+        // Print the reuse mask for source registers
+        fprintf(ctx_resultsFile[ctx], "reuse=0x%04x", ma->reuse_mask);
 
         fprintf(ctx_resultsFile[ctx], "\n");
 

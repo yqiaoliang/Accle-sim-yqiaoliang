@@ -66,11 +66,13 @@ class trace_warp_inst_t : public warp_inst_t {
   trace_warp_inst_t() {
     m_opcode = 0;
     should_do_atomic = false;
+    m_reuse_mask = 0;
   }
 
   trace_warp_inst_t(const class core_config *config) : warp_inst_t(config) {
     m_opcode = 0;
     should_do_atomic = false;
+    m_reuse_mask = 0;
   }
 
   bool parse_from_trace_struct(
@@ -81,6 +83,10 @@ class trace_warp_inst_t : public warp_inst_t {
 
  private:
   unsigned m_opcode;
+  unsigned m_reuse_mask;
+
+ public:
+  unsigned get_reuse_mask() const { return m_reuse_mask; }
 };
 
 class trace_kernel_info_t : public kernel_info_t {

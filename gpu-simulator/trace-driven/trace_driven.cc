@@ -240,6 +240,9 @@ bool trace_warp_inst_t::parse_from_trace_struct(
     arch_reg.src[m] = trace.reg_src[m] + 1;
   }
 
+  // Set reuse mask (which source registers have .reuse hint from SASS)
+  m_reuse_mask = trace.reg_reuse_mask;
+
   // fill latency and initl
   tconfig->set_latency(op, latency, initiation_interval);
 

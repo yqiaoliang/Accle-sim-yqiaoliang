@@ -2,3 +2,4 @@ logfiles
 *.csv
 *.pickle*
 procman/
+resutl/
