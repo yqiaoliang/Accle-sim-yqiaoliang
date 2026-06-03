@@ -49,6 +49,10 @@ A100:
 GTX480:
     base_file: "$GPGPUSIM_ROOT/configs/tested-cfgs/SM2_GTX480/gpgpusim.config"
 
+# MY config
+MY_RTX3070:
+    base_file: "$GPGPUSIM_ROOT/configs/tested-cfgs/MY_RTX3070/gpgpusim.config"
+
 # To keep your configurations straight - we recommend specifying
 # If you are using SASS or PTX in the config:
 #   For example: QV100-SASS or QV100-PTX.
