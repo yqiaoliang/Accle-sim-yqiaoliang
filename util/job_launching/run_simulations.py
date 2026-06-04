@@ -40,6 +40,7 @@ import re
 import shutil
 import glob
 import datetime
+import socket
 import yaml
 import common
 
@@ -368,7 +369,8 @@ class ConfigurationSpec:
                             "EXEC_NAME":exec_name,
                             "QUEUE_NAME":queue_name,
                             "COMMAND_LINE":txt_args,
-                            "MEM_USAGE": mem_usage
+                            "MEM_USAGE": mem_usage,
+                            "ACCELSIM_STAGE_LOG": os.path.join(this_run_dir, "inst_stage.log")
                             }
         torque_text = open(this_directory + job_template).read().strip()
         for entry in replacement_dict:
@@ -553,7 +555,37 @@ for config in configurations:
     )
 
 if "procman" in job_submit_call and not options.no_launch:
-    if options.cores == None:
-        subprocess.call([job_submit_call, "-S"])
-    else:
-        subprocess.call([job_submit_call, "-S", "-c", options.cores])
+    hostname = socket.gethostname().strip()
+    pickle_path = os.path.join(this_directory, "procman", f"procman.{hostname}.pickle")
+
+    # If user specified core count, update it in the pickle before running
+    if options.cores is not None:
+        import pickle as _pk
+        if os.path.exists(pickle_path):
+            with open(pickle_path, "rb") as _f:
+                pm = _pk.load(_f)
+            pm.jobLimit = int(options.cores)
+            pm.saveState()
+
+    # Spawn procman + organize as a background chain (non-blocking)
+    organize_script = os.path.join(
+        this_directory, "..", "..", "script", "organize_results.py"
+    )
+    organize_script = os.path.abspath(organize_script)
+    organize_tail = ""
+    if os.path.isfile(organize_script):
+        organize_tail = " && {py} {script} --sim-dir {sim} --config {cfg} --launch-name {name}".format(
+            py=sys.executable,
+            script=organize_script,
+            sim=options.run_directory,
+            cfg=options.configs_list.strip(),
+            name=options.launch_name,
+        )
+    cmd = "{py} {procman} -f {pickle} -t 5{organize}".format(
+        py=sys.executable,
+        procman=job_submit_call,
+        pickle=pickle_path,
+        organize=organize_tail,
+    )
+    print("Spawning background job: procman -> organize")
+    subprocess.Popen(cmd, shell=True)
