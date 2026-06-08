@@ -1,3 +1,4 @@
 bin/
 build/
 gpgpu-sim/
+configs/tested-cfgs/temp*

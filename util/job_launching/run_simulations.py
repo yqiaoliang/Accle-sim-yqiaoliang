@@ -41,7 +41,9 @@ import shutil
 import glob
 import datetime
 import socket
+import fnmatch
 import yaml
+import shlex
 import common
 
 this_directory = os.path.dirname(os.path.realpath(__file__)) + "/"
@@ -61,6 +63,27 @@ def extract_version(exec_path, simulator):
     out, err = grep_process.communicate()
     version = re.sub(regex_str, r"\1", str(out.rstrip()))
     return version
+
+
+def remove_previous_outputs(path):
+    patterns = (
+        "gpgpu-sim-out*.txt",
+        "gpgpusim.o*",
+        "gpgpusim.e*",
+        "*.o*",
+        "*.e*",
+        "output.log",
+        "out.*.txt",
+        "err.*.txt",
+        "slurm-*.out",
+    )
+    if not os.path.isdir(path):
+        return
+    for name in os.listdir(path):
+        if any(fnmatch.fnmatch(name, pattern) for pattern in patterns):
+            file_path = os.path.join(path, name)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
 
 
 #######################################################################################
@@ -121,6 +144,7 @@ class ConfigurationSpec:
                 self.setup_run_directory(
                     full_data_dir, this_run_dir, data_dir, appargs_run_subdir
                 )
+                remove_previous_outputs(this_run_dir)
 
                 self.text_replace_torque_sim(
                     full_data_dir,
@@ -530,6 +554,13 @@ if not any(
 
 benchmarks = []
 benchmarks = common.gen_apps_from_suite_list(options.benchmark_list.split(","))
+case_filter = []
+for _, _, benchmark, command_line_args_list in benchmarks:
+    for argmap in command_line_args_list:
+        args = argmap["args"] if isinstance(argmap, dict) else argmap
+        case_filter.append(
+            os.path.join(benchmark.replace("/", "_"), common.get_argfoldername(args)).replace(os.sep, "/")
+        )
 
 cfgs = common.gen_configs_from_list(options.configs_list.split(","))
 configurations = []
@@ -558,34 +589,25 @@ if "procman" in job_submit_call and not options.no_launch:
     hostname = socket.gethostname().strip()
     pickle_path = os.path.join(this_directory, "procman", f"procman.{hostname}.pickle")
 
-    # If user specified core count, update it in the pickle before running
-    if options.cores is not None:
-        import pickle as _pk
-        if os.path.exists(pickle_path):
-            with open(pickle_path, "rb") as _f:
-                pm = _pk.load(_f)
-            pm.jobLimit = int(options.cores)
-            pm.saveState()
-
-    # Spawn procman + organize as a background chain (non-blocking)
+    # Background chain: procman sync (-f) → organize
     organize_script = os.path.join(
         this_directory, "..", "..", "script", "organize_results.py"
     )
     organize_script = os.path.abspath(organize_script)
     organize_tail = ""
     if os.path.isfile(organize_script):
-        organize_tail = " && {py} {script} --sim-dir {sim} --config {cfg} --launch-name {name}".format(
-            py=sys.executable,
-            script=organize_script,
-            sim=options.run_directory,
-            cfg=options.configs_list.strip(),
-            name=options.launch_name,
+        organize_tail = " && {py} {script} --sim-dir {sim} --config {cfg} --launch-name {name} --case-filter {case_filter}".format(
+            py=shlex.quote(sys.executable),
+            script=shlex.quote(organize_script),
+            sim=shlex.quote(options.run_directory),
+            cfg=shlex.quote(options.configs_list.strip()),
+            name=shlex.quote(options.launch_name),
+            case_filter=shlex.quote(",".join(case_filter)),
         )
     cmd = "{py} {procman} -f {pickle} -t 5{organize}".format(
-        py=sys.executable,
-        procman=job_submit_call,
-        pickle=pickle_path,
+        py=shlex.quote(sys.executable),
+        procman=shlex.quote(job_submit_call),
+        pickle=shlex.quote(pickle_path),
         organize=organize_tail,
     )
-    print("Spawning background job: procman -> organize")
-    subprocess.Popen(cmd, shell=True)
+    subprocess.run(cmd, shell=True)

@@ -53,6 +53,10 @@ GTX480:
 MY_RTX3070:
     base_file: "$GPGPUSIM_ROOT/configs/tested-cfgs/MY_RTX3070/gpgpusim.config"
 
+# Regression test temp config
+temp:
+    base_file: "$GPGPUSIM_ROOT/configs/tested-cfgs/temp/gpgpusim.config"
+
 # To keep your configurations straight - we recommend specifying
 # If you are using SASS or PTX in the config:
 #   For example: QV100-SASS or QV100-PTX.

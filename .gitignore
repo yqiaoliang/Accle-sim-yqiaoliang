@@ -17,3 +17,6 @@ compile_commands.json
 .cursorrules
 CLAUDE.md
 regress_result/
+regress_configs/
+
+__pycache__/

@@ -12,14 +12,14 @@ Usage:
 """
 
 import os
+import glob
 import re
 import shutil
-import glob
 from datetime import datetime
 from argparse import ArgumentParser
 
 
-def find_case_dirs(sim_dir, config):
+def find_case_dirs(sim_dir, config, allowed_cases=None):
     """
     Walk sim_dir to find all case run directories.
     Returns list of (case_name, case_run_dir)
@@ -38,13 +38,34 @@ def find_case_dirs(sim_dir, config):
                 case_name = os.path.join(parts[0], parts[1]).replace(os.sep, "/")
             else:
                 case_name = parts[0]
+            if allowed_cases and case_name not in allowed_cases:
+                continue
             results.append((case_name, case_run_dir))
     return results
 
 
+def find_newest_file(case_run_dir, patterns, min_mtime=None, required_text=None):
+    matches = []
+    for pattern in patterns:
+        matches.extend(glob.glob(os.path.join(case_run_dir, pattern)))
+    files = [path for path in matches if os.path.isfile(path)]
+    if min_mtime is not None:
+        files = [path for path in files if os.path.getmtime(path) >= min_mtime]
+    if required_text is not None:
+        filtered = []
+        for path in files:
+            with open(path, "r", errors="ignore") as f:
+                if required_text in f.read():
+                    filtered.append(path)
+        files = filtered
+    if not files:
+        return None
+    return max(files, key=os.path.getmtime)
+
+
 def find_files(case_run_dir, case_name):
     """
-    Find .e, .o, and inst_stage.log files in the case run directory.
+    Find result files in the case run directory.
     Returns dict with keys: error, log, stage
     """
     result = {}
@@ -54,19 +75,22 @@ def find_files(case_run_dir, case_name):
     if os.path.isfile(stage_log):
         result["stage"] = stage_log
 
-    # Find .e and .o files matching the case pattern
-    for f in os.listdir(case_run_dir):
-        full = os.path.join(case_run_dir, f)
-        if not os.path.isfile(full):
-            continue
-        # Error files: .eXXX
-        if f.endswith(tuple(f".e{i}" for i in range(1000))) or re.search(r"\.e\d+$", f):
-            if result.get("error") is None:
-                result["error"] = full
-        # Output files: .oXXX
-        elif f.endswith(tuple(f".o{i}" for i in range(1000))) or re.search(r"\.o\d+$", f):
-            if result.get("log") is None:
-                result["log"] = full
+    # Find gpgpusim.config (copy as regress.config)
+    config_file = os.path.join(case_run_dir, "gpgpusim.config")
+    config_mtime = None
+    if os.path.isfile(config_file):
+        result["config"] = config_file
+        config_mtime = os.path.getmtime(config_file)
+
+    log_file = find_newest_file(case_run_dir, ["gpgpu-sim-out*.txt", "output.log"], config_mtime)
+    if log_file is None:
+        log_file = find_newest_file(case_run_dir, ["gpgpusim.o*", "*.o*"], config_mtime, "GPGPU-Sim")
+    if log_file:
+        result["log"] = log_file
+
+    error_file = find_newest_file(case_run_dir, ["gpgpusim.e*"])
+    if error_file:
+        result["error"] = error_file
 
     return result
 
@@ -76,13 +100,17 @@ def sanitize_filename(name):
     return name.replace("/", "_").replace("\\", "_").replace(" ", "_")
 
 
-def organize_results(sim_dir, config, launch_name, output_dir):
+def organize_results(sim_dir, config, launch_name, output_dir, case_filter=None):
     """Main function: find, copy, and rename result files."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     dest_root = os.path.join(output_dir, f"{launch_name}_{timestamp}")
     os.makedirs(dest_root, exist_ok=True)
 
-    cases = find_case_dirs(sim_dir, config)
+    allowed_cases = None
+    if case_filter:
+        allowed_cases = {case.strip() for case in case_filter.split(",") if case.strip()}
+
+    cases = find_case_dirs(sim_dir, config, allowed_cases)
     print(f"Found {len(cases)} case directories under config '{config}'")
 
     copied_count = 0
@@ -115,6 +143,12 @@ def organize_results(sim_dir, config, launch_name, output_dir):
             shutil.copy2(files["stage"], dest)
             copied = True
 
+        # Copy gpgpusim.config → regress.config
+        if "config" in files:
+            dest = os.path.join(case_dest, "regress.config")
+            shutil.copy2(files["config"], dest)
+            copied = True
+
         if copied:
             copied_count += 1
             print(f"  [{safe_case}] → {case_dest}")
@@ -128,6 +162,7 @@ if __name__ == "__main__":
     parser.add_argument("--config", default="MY_RTX3070-SASS", help="Config name (default: MY_RTX3070-SASS)")
     parser.add_argument("--launch-name", "-N", default="myTest", help="Launch name for output folder")
     parser.add_argument("--output-dir", default=None, help="Output root directory (default: sibling of sim-dir)")
+    parser.add_argument("--case-filter", default=None, help="Comma-separated case names to copy")
     args = parser.parse_args()
 
     sim_dir = os.path.abspath(args.sim_dir)
@@ -136,4 +171,4 @@ if __name__ == "__main__":
     else:
         output_dir = os.path.join(os.path.dirname(sim_dir), "regress_result")
 
-    organize_results(sim_dir, args.config, args.launch_name, output_dir)
+    organize_results(sim_dir, args.config, args.launch_name, output_dir, args.case_filter)
