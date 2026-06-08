@@ -286,6 +286,12 @@ def parse_run_simulations_options():
         + "If you do not name the file, it will just use the current date/time.",
     )
     parser.add_option(
+        "--regress-output-dir",
+        dest="regress_output_dir",
+        default="",
+        help="Directory where organized regression results should be written.",
+    )
+    parser.add_option(
         "-T",
         "--trace_dir",
         dest="trace_dir",

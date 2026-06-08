@@ -128,6 +128,10 @@ def main():
 
     total = len(combos)
     results = []
+    batch_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+    batch_dir = os.path.join(ROOT, "regress_result", batch_time)
+    os.makedirs(batch_dir, exist_ok=True)
+    print(f"Regression result root: {batch_dir}", flush=True)
 
     for i, combo in enumerate(combos):
         tag = label(combo)
@@ -146,12 +150,13 @@ def main():
                "-B", args.benchmark,
                "-C", "temp-SASS",
                "-T", args.traces,
-               "-N", name]
+               "-N", name,
+               "--regress-output-dir", batch_dir]
         start_time = time.time()
         completed = subprocess.run(cmd)
 
         # 3. verify regress_result exists
-        regress_dirs = glob.glob(os.path.join(ROOT, "regress_result", f"{name}_*"))
+        regress_dirs = glob.glob(os.path.join(batch_dir, f"{name}_*"))
         regress_dirs = [d for d in regress_dirs if os.path.getmtime(d) >= start_time]
         regress_dirs.sort(key=os.path.getmtime, reverse=True)
         res_dir = regress_dirs[0] if completed.returncode == 0 and regress_dirs else None

@@ -596,13 +596,17 @@ if "procman" in job_submit_call and not options.no_launch:
     organize_script = os.path.abspath(organize_script)
     organize_tail = ""
     if os.path.isfile(organize_script):
-        organize_tail = " && {py} {script} --sim-dir {sim} --config {cfg} --launch-name {name} --case-filter {case_filter}".format(
+        output_dir_arg = ""
+        if options.regress_output_dir:
+            output_dir_arg = " --output-dir {out}".format(out=shlex.quote(options.regress_output_dir))
+        organize_tail = " && {py} {script} --sim-dir {sim} --config {cfg} --launch-name {name} --case-filter {case_filter}{output_dir}".format(
             py=shlex.quote(sys.executable),
             script=shlex.quote(organize_script),
             sim=shlex.quote(options.run_directory),
             cfg=shlex.quote(options.configs_list.strip()),
             name=shlex.quote(options.launch_name),
             case_filter=shlex.quote(",".join(case_filter)),
+            output_dir=output_dir_arg,
         )
     cmd = "{py} {procman} -f {pickle} -t 5{organize}".format(
         py=shlex.quote(sys.executable),
