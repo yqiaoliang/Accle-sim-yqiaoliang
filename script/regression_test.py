@@ -41,18 +41,18 @@ PARAM_DEFAULTS = {
 # which params to sweep for each rfc mode
 PARAM_SWEEP = {
     # rfc=0 → non-RFC params matter
-    # 0: {
-    #     "-gpgpu_scheduler":                  ["gto", "lrr"],
-    #     "-gpgpu_num_reg_banks":              [8, 16, 32],
-    #     "-gpgpu_operand_collector_num_units_gen": [4, 8],
-    # },
+    0: {
+        "-gpgpu_scheduler":                  ["gto", "lrr"],
+        "-gpgpu_num_reg_banks":              [8],
+        "-gpgpu_operand_collector_num_units_gen": [4, 8],
+    },
     # rfc=1 → RFC params matter
     1: {
         "-gpgpu_scheduler":                  ["gto", "lrr"],
         "-gpgpu_rfc_bank_num":               [2],
-        "-gpgpu_writeback_stack_deepth":     [1],
-        "-gpgpu_is_compiler_ctrl_reuse":     [1],
-        "-gpgpu_rfc_or_oc_per_scheduler_num": [1],
+        "-gpgpu_writeback_stack_deepth":     [1, 2],
+        "-gpgpu_is_compiler_ctrl_reuse":     [0, 1],
+        "-gpgpu_rfc_or_oc_per_scheduler_num": [1, 2],
     },
 }
 
