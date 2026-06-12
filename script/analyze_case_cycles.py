@@ -3,10 +3,10 @@
 import argparse
 import csv
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
-result_path = "/Users/bytedance/Desktop/Accel-sim/accel-sim-framework/regress_result/20260609_030436"
+result_path = "/Users/bytedance/Desktop/Accel-sim/accel-sim-framework/regress_result/20260612_064245"
 
 
 def resolve_result_dir(value):
@@ -40,6 +40,17 @@ def parse_last_gpu_cycle(log_path):
             if match:
                 last_value = int(match.group(1))
     return last_value
+
+
+def parse_inst_stage_op_counts(log_path):
+    pattern = re.compile(r"\bop:\s*([^\s,]+)")
+    counts = Counter()
+    with open(log_path, "r", errors="ignore") as f:
+        for line in f:
+            match = pattern.search(line)
+            if match:
+                counts[match.group(1)] += 1
+    return counts
 
 
 def find_case_logs(root):
@@ -90,6 +101,52 @@ def write_root_csv(root, records):
         for record in sorted(records, key=lambda item: (item["case_label"], item["case"], item["config"])):
             writer.writerow([record["case"], record["case_label"], record["config"], record["cycles"], record["log_path"]])
     return csv_path
+
+
+def write_case_op_count_csv(root, records):
+    confluence_dir = root / "confluence"
+    confluence_dir.mkdir(exist_ok=True)
+    csv_path = confluence_dir / "case_op_count.csv"
+    by_case = {}
+    for record in sorted(records, key=lambda item: (item["case_label"], item["case"], item["config"])):
+        by_case.setdefault(record["case"], record)
+
+    rows = []
+    for record in by_case.values():
+        inst_stage_path = record["log_path"].parent / "inst_stage.log"
+        if not inst_stage_path.exists():
+            continue
+        counts = parse_inst_stage_op_counts(inst_stage_path)
+        total = sum(counts.values())
+        if not total:
+            continue
+        for op, count in sorted(counts.items(), key=lambda item: (-item[1], item[0])):
+            rows.append({
+                "case": record["case"],
+                "case_label": record["case_label"],
+                "op": op,
+                "count": count,
+                "percent": count / total * 100,
+                "total_instructions": total,
+                "source_config": record["config"],
+                "inst_stage_log_path": inst_stage_path,
+            })
+
+    with open(csv_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["case", "case_label", "op", "count", "percent", "total_instructions", "source_config", "inst_stage_log_path"])
+        for row in sorted(rows, key=lambda item: (item["case_label"], item["case"], -item["count"], item["op"])):
+            writer.writerow([
+                row["case"],
+                row["case_label"],
+                row["op"],
+                row["count"],
+                f"{row['percent']:.6f}",
+                row["total_instructions"],
+                row["source_config"],
+                row["inst_stage_log_path"],
+            ])
+    return csv_path, len(by_case), len(rows)
 
 
 def add_horizontal_value_labels(ax, bars, fmt="{:.0f}"):
@@ -231,6 +288,8 @@ def main(selected_result_path, no_graphs=False):
     write_config_csv(root, records)
     root_csv = write_root_csv(root, records)
     print(f"Wrote root CSV: {root_csv}")
+    op_count_csv, case_count, op_row_count = write_case_op_count_csv(root, records)
+    print(f"Wrote case op count CSV: {op_count_csv} ({case_count} case(s), {op_row_count} row(s))")
 
     if not no_graphs:
         try:

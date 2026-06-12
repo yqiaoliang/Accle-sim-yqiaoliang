@@ -271,7 +271,16 @@ class ProcMan:
         ):
             if pickleFile != self.pickleFile:
                 otherProcMan = pickle.load(open(pickleFile, "rb"))
-                othersCores += len(otherProcMan.activeJobs)
+                liveJobs = 0
+                for activeJob in otherProcMan.activeJobs.values():
+                    if activeJob.procId is None:
+                        continue
+                    try:
+                        os.kill(activeJob.procId, signal.SIGCONT)
+                        liveJobs += 1
+                    except OSError:
+                        pass
+                othersCores += liveJobs
         return othersCores
 
     def getState(self):

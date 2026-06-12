@@ -44,6 +44,7 @@ import socket
 import fnmatch
 import yaml
 import shlex
+import signal
 import common
 
 this_directory = os.path.dirname(os.path.realpath(__file__)) + "/"
@@ -63,6 +64,35 @@ def extract_version(exec_path, simulator):
     out, err = grep_process.communicate()
     version = re.sub(regex_str, r"\1", str(out.rstrip()))
     return version
+
+
+def pid_is_alive(pid):
+    if pid is None:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def cleanup_stale_procman_state():
+    procman_dir = os.path.join(this_directory, "procman")
+    if not os.path.isdir(procman_dir):
+        return
+    pattern = os.path.join(procman_dir, f"procman.{socket.gethostname().strip()}.pickle.*")
+    for pickle_file in glob.glob(pattern):
+        try:
+            pid = int(os.path.basename(pickle_file).rsplit(".", 1)[-1])
+        except ValueError:
+            continue
+        if pid_is_alive(pid):
+            continue
+        try:
+            os.remove(pickle_file)
+            print(f"Removed stale procman state: {pickle_file}")
+        except OSError:
+            pass
 
 
 def remove_previous_outputs(path):
@@ -519,7 +549,8 @@ if options.launcher != "":
         job_submit_call = options.launcher
         job_template = "slurm.sim"
     elif options.launcher == "local":
-        job_submit_call = os.path.join(this_directory, "procman.py")
+        cleanup_stale_procman_state()
+        job_submit_call = f"{shlex.quote(sys.executable)} {shlex.quote(os.path.join(this_directory, 'procman.py'))}"
         job_template = "slurm.sim"
 elif any(
     [

@@ -5,7 +5,7 @@ import json
 import re
 from pathlib import Path
 
-result_path = "/Users/bytedance/Desktop/Accel-sim/accel-sim-framework/regress_result/20260609_030436"
+result_path = "/Users/bytedance/Desktop/Accel-sim/accel-sim-framework/regress_result/20260612_064245"
 
 
 def resolve_result_dir(value):
@@ -114,8 +114,8 @@ th {{ background: #eceff1; position: sticky; top: 0; }}
     </select></div>
     <div class=\"card\"><label>Baseline parameter</label><select id=\"baselineParam\"></select></div>
     <div class=\"card\"><label>Baseline parameter value</label><select id=\"baselineParamValue\"></select></div>
-    <div class=\"card\"><label>Group A filter</label><input id=\"groupAFilter\" placeholder=\"rfc=1,reuse=0\"></div>
-    <div class=\"card\"><label>Group B filter</label><input id=\"groupBFilter\" placeholder=\"rfc=1,reuse=1\"></div>
+    <div class=\"card\"><label>Group A filter</label><input id=\"groupAFilter\" placeholder=\"rfc=1,reuse=0,dp=0\"></div>
+    <div class=\"card\"><label>Group B filter</label><input id=\"groupBFilter\" placeholder=\"rfc=1,reuse=1,dp=1\"></div>
     <div class=\"card\"><label>Selected case</label><select id=\"caseSelect\"></select></div>
     <div class=\"card\"><label>Sort</label><select id=\"sortMode\">
       <option value=\"case\">Case name</option>
@@ -141,7 +141,7 @@ const rawData = {data_json};
 const configs = [...new Set(rawData.map(d => d.config))].sort();
 const cases = [...new Set(rawData.map(d => d.case_label))].sort();
 const byCaseConfig = new Map(rawData.map(d => [d.case_label + '\\u0000' + d.config, d]));
-const paramNames = ['sched', 'rfc', 'bank', 'wbd', 'reuse', 'ocs', 'regb', 'ocu'];
+const paramNames = ['sched', 'rfc', 'bank', 'wbd', 'reuse', 'ocs', 'regb', 'ocu', 'dp'];
 const configParams = new Map(configs.map(config => [config, parseConfigParams(config)]));
 
 function el(id) {{ return document.getElementById(id); }}
@@ -150,10 +150,10 @@ function pct(n) {{ return (n >= 0 ? '+' : '') + n.toFixed(1) + '%'; }}
 function isLrrBaseline(config) {{ return config.includes('sched_lrr') && config.includes('rfc0') && config.includes('ocu8'); }}
 
 function parseConfigParams(config) {{
-  const match = config.match(/sched_([^_]+)_rfc(\\d+)_bank(\\d+)_wbd(\\d+)_reuse(\\d+)_ocs(\\d+)_regb(\\d+)_ocu(\\d+)/);
+  const match = config.match(/sched_([^_]+)_rfc(\\d+)_bank(\\d+)_wbd(\\d+)_reuse(\\d+)_ocs(\\d+)_regb(\\d+)_ocu(\\d+)(?:_dp(\\d+))?/);
   if (!match) return null;
-  const [, sched, rfc, bank, wbd, reuse, ocs, regb, ocu] = match;
-  return {{sched, rfc, bank, wbd, reuse, ocs, regb, ocu}};
+  const [, sched, rfc, bank, wbd, reuse, ocs, regb, ocu, dp = ''] = match;
+  return {{sched, rfc, bank, wbd, reuse, ocs, regb, ocu, dp}};
 }}
 
 function paramValues(param) {{

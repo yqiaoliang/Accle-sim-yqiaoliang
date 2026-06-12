@@ -8,9 +8,9 @@ import statistics
 from collections import defaultdict
 from pathlib import Path
 
-result_path = "/Users/bytedance/Desktop/Accel-sim/accel-sim-framework/regress_result/20260609_030436"
+result_path = "/Users/bytedance/Desktop/Accel-sim/accel-sim-framework/regress_result/20260612_064245"
 bypass_config_name_list = []
-bypass_first_config_count = 16
+bypass_first_config_count = 0
 
 STAGES = ["NONE", "SCHEDULER", "OPERAND_COLLECTOR", "EXECUTION_PIPELINE", "WRITEBACK"]
 ACTIVE_STAGES = STAGES[1:]
@@ -368,27 +368,34 @@ def build_case_stage_summary(case_results):
 def plot_case_stage_ratio(case_stage, metric, output_path):
     plt = load_pyplot()
     labels = list(case_stage.keys())
-    rows = []
+    ratio_rows = []
+    value_rows = []
+    totals = []
     for case in labels:
         total = sum(case_stage[case][stage][metric] for stage in ACTIVE_STAGES)
-        rows.append([percent(case_stage[case][stage][metric], total) for stage in ACTIVE_STAGES])
+        totals.append(total)
+        value_rows.append([case_stage[case][stage][metric] for stage in ACTIVE_STAGES])
+        ratio_rows.append([percent(case_stage[case][stage][metric], total) for stage in ACTIVE_STAGES])
 
     height = max(6, len(labels) * 0.45 + 3)
-    fig, ax = plt.subplots(figsize=(14, height), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(16, height), constrained_layout=True)
     y_pos = list(range(len(labels)))
     lefts = [0.0] * len(labels)
     for idx, stage in enumerate(ACTIVE_STAGES):
-        vals = [row[idx] for row in rows]
+        vals = [row[idx] for row in ratio_rows]
+        actual_values = [row[idx] for row in value_rows]
         bars = ax.barh(y_pos, vals, left=lefts, label=stage)
-        for bar, val in zip(bars, vals):
+        for bar, val, actual in zip(bars, vals, actual_values):
             if val:
                 ax.text(bar.get_x() + bar.get_width() / 2,
                         bar.get_y() + bar.get_height() / 2,
-                        f"{val:.1f}", ha="center", va="center", fontsize=8)
+                        f"{val:.1f}%\n{actual:,.0f}", ha="center", va="center", fontsize=7)
         lefts = [lefts[i] + vals[i] for i in range(len(vals))]
+    for y, total in zip(y_pos, totals):
+        ax.text(101, y, f"total={total:,.0f}", ha="left", va="center", fontsize=8)
     ax.set_title(f"case stage {metric} ratio")
     ax.set_xlabel("ratio (%)")
-    ax.set_xlim(0, 100)
+    ax.set_xlim(0, 116)
     ax.set_yticks(y_pos)
     ax.set_yticklabels(labels)
     ax.legend(loc="upper right")
@@ -566,8 +573,9 @@ def resolve_result_dir(value):
     return path.resolve()
 
 
-def main(result_dir, no_graphs=False, case_graphs=False):
+def main(result_dir, no_graphs=False, no_case_graphs=False):
     make_graphs = not no_graphs
+    case_graphs = make_graphs and not no_case_graphs
     if make_graphs:
         try:
             load_pyplot()
@@ -624,10 +632,10 @@ if __name__ == "__main__":
                         help="Completed result directory to scan. Overrides result_path when provided.")
     parser.add_argument("--no-graphs", action="store_true",
                         help="Only write CSV files; skip PNG generation.")
-    parser.add_argument("--case-graphs", action="store_true",
-                        help="Also generate per-case PNGs. This is memory-heavy for large result directories.")
+    parser.add_argument("--no-case-graphs", action="store_true",
+                        help="Skip per-case PNG generation; confluence PNGs are still generated unless --no-graphs is set.")
     args = parser.parse_args()
     selected_result_path = args.result_dir or result_path
     if not selected_result_path:
         parser.error("set result_path in this script or pass result_dir on the command line")
-    main(selected_result_path, args.no_graphs, args.case_graphs)
+    main(selected_result_path, args.no_graphs, args.no_case_graphs)
