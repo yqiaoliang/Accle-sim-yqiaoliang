@@ -53,8 +53,8 @@ PARAM_SWEEP = {
         "-gpgpu_rfc_bank_num":               [2],
         "-gpgpu_writeback_stack_deepth":     [1],
         "-gpgpu_is_compiler_ctrl_reuse":     [0],
-        "-gpgpu_rfc_or_oc_per_scheduler_num": [1, 4, 8],
-        "-gpgpu_num_dp_units":               [4, 8, 12],
+        "-gpgpu_rfc_or_oc_per_scheduler_num": [1, 2, 4, 6, 8],
+        "-gpgpu_num_dp_units":               [4],
     },
 }
 

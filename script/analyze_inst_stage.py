@@ -14,8 +14,6 @@ bypass_first_config_count = 0
 
 STAGES = ["NONE", "SCHEDULER", "OPERAND_COLLECTOR", "EXECUTION_PIPELINE", "WRITEBACK"]
 ACTIVE_STAGES = STAGES[1:]
-
-
 def parse_inst_stage_log(path):
     current = None
     re_header = re.compile(r"warp_id:\s*(\d+),\s*pc:\s*(0x[0-9a-fA-F]+),\s*op:\s*(\S+)")

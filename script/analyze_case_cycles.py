@@ -6,8 +6,7 @@ import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
-result_path = "/Users/bytedance/Desktop/Accel-sim/accel-sim-framework/regress_result/20260612_064245"
-
+result_path = "/Users/bytedance/Desktop/Accel-sim/accel-sim-framework/regress_result/20260614_082836"
 
 def resolve_result_dir(value):
     path = Path(value)
@@ -51,6 +50,7 @@ def parse_inst_stage_op_counts(log_path):
             if match:
                 counts[match.group(1)] += 1
     return counts
+
 
 
 def find_case_logs(root):
@@ -149,6 +149,7 @@ def write_case_op_count_csv(root, records):
     return csv_path, len(by_case), len(rows)
 
 
+
 def add_horizontal_value_labels(ax, bars, fmt="{:.0f}"):
     for bar in bars:
         width = bar.get_width()
@@ -211,6 +212,7 @@ def plot_root_case_cycles(root, records):
     fig.savefig(output_path, dpi=160)
     plt.close(fig)
     return output_path
+
 
 
 def plot_relative_case_cycles(root, records, baseline_mode):
@@ -290,7 +292,6 @@ def main(selected_result_path, no_graphs=False):
     print(f"Wrote root CSV: {root_csv}")
     op_count_csv, case_count, op_row_count = write_case_op_count_csv(root, records)
     print(f"Wrote case op count CSV: {op_count_csv} ({case_count} case(s), {op_row_count} row(s))")
-
     if not no_graphs:
         try:
             output_path = plot_root_case_cycles(root, records)
