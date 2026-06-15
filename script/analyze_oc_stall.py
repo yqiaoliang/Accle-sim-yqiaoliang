@@ -6,7 +6,7 @@ import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
-result_path = "/Users/bytedance/Desktop/Accel-sim/accel-sim-framework/regress_result/20260614_110232"
+result_path = "/Users/bytedance/Desktop/Accel-sim/accel-sim-framework/regress_result/20260615_074224"
 
 STALL_REASONS = [
     "RFC_NUM_CONFLICT",

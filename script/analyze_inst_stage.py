@@ -8,7 +8,7 @@ import statistics
 from collections import defaultdict
 from pathlib import Path
 
-result_path = "/Users/bytedance/Desktop/Accel-sim/accel-sim-framework/regress_result/20260612_064245"
+result_path = "/Users/bytedance/Desktop/Accel-sim/accel-sim-framework/regress_result/20260615_074224"
 bypass_config_name_list = []
 bypass_first_config_count = 0
 
