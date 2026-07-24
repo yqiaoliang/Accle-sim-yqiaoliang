@@ -5,6 +5,8 @@ sim_run_*
 *.DS_Store*
 *.csv
 *.csv#
+!/result/sweep_rfc_num/csv/*.csv
+!/result/scheduler_reuse_policy/csv/*.csv
 4.2/
 gpucomputingsdk_4.2.9_linux.run
 util/job_launching/*.txt
